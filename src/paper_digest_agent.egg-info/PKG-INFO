@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: paper-digest-agent
+Version: 0.1.0
+Requires-Python: >=3.11
+Requires-Dist: langgraph
+Requires-Dist: langchain
+Requires-Dist: langchain-community
+Requires-Dist: pydantic
+Requires-Dist: python-dotenv
+Requires-Dist: typer
+Requires-Dist: rich
