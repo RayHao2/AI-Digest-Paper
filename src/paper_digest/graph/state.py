@@ -46,7 +46,7 @@ class GraphState(TypedDict, total=False):
     run_date: str
     topics: List[str]
     top_k: int
-    max_results: int           # NEW
+    max_results: int
 
     # Pipeline payloads
     raw_items: List[Dict[str, Any]]
@@ -59,3 +59,6 @@ class GraphState(TypedDict, total=False):
     # Diagnostics
     errors: List[str]
     logs: List[str]
+    rank_scores: List[float]
+
+

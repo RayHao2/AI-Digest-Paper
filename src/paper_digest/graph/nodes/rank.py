@@ -1,68 +1,91 @@
 from __future__ import annotations
 
+import re
 from typing import List
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from rank_bm25 import BM25Okapi
 
 from ..state import GraphState, Paper
 
 
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _tokenize(text: str) -> List[str]:
+    """
+    Lightweight tokenizer:
+    - lowercase
+    - keep alphanumerics
+    - split into tokens
+
+    Example:
+      "Prompt-Guided Diffusion-Based Medical Image Segmentation"
+      -> ["prompt", "guided", "diffusion", "based", "medical", "image", "segmentation"]
+    """
+    return _WORD_RE.findall((text or "").lower())
+
+
 def rank_papers(state: GraphState) -> GraphState:
     """
-    Rank candidate papers using TF-IDF cosine similarity between:
-      query_text = "topic1 topic2 ..."
-      doc_text   = "title abstract"
+    Rank papers using BM25 between:
+      query_tokens = tokens("topic1 topic2 ...")
+      doc_tokens   = tokens("title abstract")
 
     Writes:
       state["ranked"] = sorted papers (best first)
-      state["rank_scores"] = list[float] aligned with ranked (optional)
+      state["rank_scores"] = list[float] aligned with ranked (BM25 scores)
     """
     topics: List[str] = state.get("topics", [])
-    candidates: List[Paper] = state.get("candidates") or state.get("papers", [])
+    papers: List[Paper] = state.get("papers", [])
 
-    if not candidates:
+    if not papers:
         state["ranked"] = []
-        state.setdefault("logs", []).append("RankPapers(TFIDF): no candidates to rank.")
+        state["rank_scores"] = []
+        state.setdefault("logs", []).append("RankPapers(BM25): no papers to rank.")
         return state
 
-    # If no topics, keep original order (or you could sort by updated_at)
+    # If no topics, keep fetched order (already sorted by lastUpdatedDate in fetch)
     if not topics:
-        state["ranked"] = candidates
-        state.setdefault("logs", []).append("RankPapers(TFIDF): no topics; kept original order.")
+        state["ranked"] = papers
+        state["rank_scores"] = [0.0] * len(papers)
+        state.setdefault("logs", []).append(
+            f"RankPapers(BM25): no topics; kept fetched order ({len(papers)} papers)."
+        )
         return state
 
-    query_text = " ".join([t.strip() for t in topics if t and t.strip()])
+    query_text = " ".join(t.strip() for t in topics if t and t.strip())
+    query_tokens = _tokenize(query_text)
 
-    docs = []
-    for p in candidates:
-        title = p.get("title", "") or ""
-        abstract = p.get("abstract", "") or ""
-        docs.append(f"{title}\n{abstract}")
+    if not query_tokens:
+        state["ranked"] = papers
+        state["rank_scores"] = [0.0] * len(papers)
+        state.setdefault("logs", []).append(
+            f"RankPapers(BM25): empty query; kept fetched order ({len(papers)} papers)."
+        )
+        return state
 
-    # Fit TF-IDF on docs + query so they share the same vocabulary
-    vectorizer = TfidfVectorizer(
-        lowercase=True,
-        stop_words="english",
-        ngram_range=(1, 2),   # unigrams + bigrams helps phrases like "tool use"
-        max_features=20000,
-    )
+    # Build tokenized corpus
+    corpus_tokens: List[List[str]] = []
+    for p in papers:
+        title = p.get("title") or ""
+        abstract = p.get("abstract") or ""
+        corpus_tokens.append(_tokenize(f"{title}\n{abstract}"))
 
-    X = vectorizer.fit_transform(docs + [query_text])  # last row is query
-    doc_vecs = X[:-1]
-    query_vec = X[-1]
+    bm25 = BM25Okapi(corpus_tokens)
+    scores = bm25.get_scores(query_tokens)  # numpy array-like, len == len(papers)
 
-    sims = cosine_similarity(doc_vecs, query_vec).reshape(-1)  # length = len(candidates)
-
-    # Sort candidates by similarity
-    order = sorted(range(len(candidates)), key=lambda i: sims[i], reverse=True)
-    ranked = [candidates[i] for i in order]
-    ranked_scores = [float(sims[i]) for i in order]
+    order = sorted(range(len(papers)), key=lambda i: float(scores[i]), reverse=True)
+    ranked = [papers[i] for i in order]
+    ranked_scores = [float(scores[i]) for i in order]
 
     state["ranked"] = ranked
-    state["rank_scores"] = ranked_scores  # optional, useful for debugging
+    state["rank_scores"] = ranked_scores
 
-    preview = [f"{ranked_scores[i]:.3f} :: {ranked[i].get('title','')[:60]}" for i in range(min(5, len(ranked)))]
-    state.setdefault("logs", []).append(f"RankPapers(TFIDF): ranked {len(ranked)} papers. Top: {preview}")
-
+    preview = [
+        f"{ranked_scores[i]:.3f} :: {ranked[i].get('title','')[:60]}"
+        for i in range(min(5, len(ranked)))
+    ]
+    state.setdefault("logs", []).append(
+        f"RankPapers(BM25): ranked {len(ranked)} papers using query='{query_text}'. Top: {preview}"
+    )
     return state

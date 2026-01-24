@@ -8,7 +8,6 @@ src/paper_digest/graph/state.py
 src/paper_digest/graph/nodes/__init__.py
 src/paper_digest/graph/nodes/assemble.py
 src/paper_digest/graph/nodes/fetch.py
-src/paper_digest/graph/nodes/filter.py
 src/paper_digest/graph/nodes/persist.py
 src/paper_digest/graph/nodes/rank.py
 src/paper_digest/graph/nodes/summarize.py
