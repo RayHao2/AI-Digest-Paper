@@ -1,47 +1,57 @@
 from __future__ import annotations
-
-from datetime import datetime
 from typing import List
-
 from ..state import GraphState, PaperSummary
 
-
 def assemble_digest(state: GraphState) -> GraphState:
-    """
-    Assemble the final Markdown digest from summaries.
-    """
-    run_date = state.get("run_date") or datetime.now().strftime("%Y-%m-%d")
-    summaries: List[PaperSummary] = state.get("summaries", [])
+    run_date = state.get("run_date", "")
+    summaries: List[PaperSummary] = state.get("summaries", []) or []
 
     lines: List[str] = []
-    lines.append(f"# AI Paper Digest ({run_date})")
-    lines.append("")
-
-    if not summaries:
-        lines.append("No new papers found.")
-        lines.append("")
-        state["digest_md"] = "\n".join(lines)
-        state.setdefault("logs", []).append("AssembleDigest: no summaries; produced empty digest.")
-        return state
+    lines.append(f"# AI Paper Digest ({run_date})\n")
 
     for i, s in enumerate(summaries, start=1):
         title = s.get("title", "Untitled")
         url = s.get("url", "")
-        one_liner = s.get("one_liner", "")
-        why = s.get("why_it_matters", "")
-        tags = s.get("tags", [])
+        status = s.get("status", "ok")
 
         lines.append(f"## {i}. {title}")
         if url:
             lines.append(f"- Link: {url}")
+
+        if status != "ok":
+            lines.append(f"- Status: **failed**")
+            lines.append(f"- Error: {s.get('error','')}")
+            lines.append("")
+            continue
+
+        tags = s.get("tags", []) or []
         if tags:
             lines.append(f"- Tags: {', '.join(tags)}")
-        if one_liner:
-            lines.append(f"- One-liner: {one_liner}")
+
+        one = (s.get("one_liner", "") or "").strip()
+        if one:
+            lines.append(f"- One-liner: {one}")
+
+        why = (s.get("why_it_matters", "") or "").strip()
         if why:
             lines.append(f"- Why it matters: {why}")
+
+        # Optional sections
+        def add_bullets(label: str, items: List[str]):
+            items = [x.strip() for x in (items or []) if x and x.strip()]
+            if items:
+                lines.append(f"- {label}:")
+                for it in items:
+                    lines.append(f"  - {it}")
+
+        add_bullets("Key contributions", s.get("key_contributions", []))
+        add_bullets("Methods", s.get("methods", []))
+        add_bullets("Limitations", s.get("limitations", []))
+
         lines.append("")
 
-    state["digest_md"] = "\n".join(lines)
-    state.setdefault("logs", []).append(f"AssembleDigest: assembled digest with {len(summaries)} items.")
+    state["digest_md"] = "\n".join(lines).strip() + "\n"
+    state.setdefault("logs", []).append(
+        f"AssembleDigest: assembled digest with {len(summaries)} items."
+    )
     return state

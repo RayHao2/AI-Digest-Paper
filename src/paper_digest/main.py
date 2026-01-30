@@ -23,6 +23,8 @@ def run(
 
     graph = build()
 
+    run_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    out_dir = str(Path("outputs") / f"run_{run_id}")
     initial_state = {
         "run_date": datetime.now().strftime("%Y-%m-%d"),
         "top_k": top_k,
@@ -30,6 +32,9 @@ def run(
         "topics": topic,
         "errors": [],
         "logs": [],
+        "llm_model": "gemini-2.5-flash",
+        "run_id": run_id,
+        "out_dir": out_dir
     }
 
     result = graph.invoke(initial_state)

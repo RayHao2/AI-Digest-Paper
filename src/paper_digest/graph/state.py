@@ -19,6 +19,12 @@ class Paper(TypedDict, total=False):
     updated_at: str            # ISO date string
     categories: List[str]
 
+    intro_text: str
+    summary_text: str
+    pdf_url: str
+    content_status: str
+    content_error: str
+
 
 class PaperSummary(TypedDict, total=False):
     """
@@ -60,5 +66,19 @@ class GraphState(TypedDict, total=False):
     errors: List[str]
     logs: List[str]
     rank_scores: List[float]
+
+    fulltext_ready: List[Paper]
+    pdf_head_pages: int
+    pdf_tail_pages: int
+    pdf_fetch_limit: int
+    section_max_chars: int
+    pdf_polite_delay_s: float
+    # LLM model to use 
+    llm_model: str
+
+    # output check
+    run_id: str
+    out_dir: str 
+
 
 
