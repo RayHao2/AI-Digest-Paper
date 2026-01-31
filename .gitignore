@@ -1,6 +1,19 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
-.env
-data/
+
+# Outputs / runs
 outputs/
+runs/
+
+# Env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
