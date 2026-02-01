@@ -1,0 +1,13 @@
+[] Containerize backend with Docker (FastAPI + LangGraph), env-driven config, reproducible builds
+
+[] Abstract artifact storage (local → S3) for prompts, summaries, and digests
+
+[] Persist run metadata beyond memory (JSON or SQLite) for restart-safe execution
+
+[] Add scheduled execution hooks (CLI + API) to support daily automated runs (EventBridge-ready)
+
+[] Deploy container to AWS App Runner with ECR + env secrets
+
+[] Enable Amazon S3 storage via IAM-scoped access for run artifacts
+
+[] Prepare email delivery layer (SES-ready interface) for digest distribution

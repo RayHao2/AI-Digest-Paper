@@ -11,8 +11,11 @@ from ..state import GraphState, Paper, PaperSummary
 from ..schemas import SummarySchema
 import random
 import re
+from paper_digest.config import get_gemini_api_key
+
 
 _TRANSIENT_HTTP = {429, 500, 503}
+
 
 def _extract_http_status(ex: Exception) -> int | None:
     """
@@ -75,7 +78,8 @@ def _write_text(path: Path, content: str) -> None:
 
 def _write_json(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(obj, ensure_ascii=False,
+                    indent=2), encoding="utf-8")
 
 
 def summarize_topk(state: GraphState) -> GraphState:
@@ -87,14 +91,13 @@ def summarize_topk(state: GraphState) -> GraphState:
     chosen = ranked[: min(len(ranked), top_k)]
 
     out_dir = Path(state.get("out_dir", "outputs")).resolve()
-    run_dir = out_dir  
-    
+    run_dir = out_dir
+
     if not chosen:
         state["summaries"] = []
-        state.setdefault("logs", []).append("SummarizeTopK(Gemini): no papers to summarize.")
+        state.setdefault("logs", []).append(
+            "SummarizeTopK(Gemini): no papers to summarize.")
         return state
-
-    client = genai.Client()
 
     system_instruction = (
         "You are an AI research assistant. "
@@ -113,10 +116,12 @@ def summarize_topk(state: GraphState) -> GraphState:
         title = p.get("title", "")
 
         # Per-paper artifact paths
-        safe_id = paper_id.replace("/", "_").replace(":", "_") or f"paper_{idx}"
+        safe_id = paper_id.replace(
+            "/", "_").replace(":", "_") or f"paper_{idx}"
         prompt_path = run_dir / "summaries" / f"{idx:02d}_{safe_id}_prompt.txt"
         raw_path = run_dir / "summaries" / f"{idx:02d}_{safe_id}_raw.txt"
-        parsed_path = run_dir / "summaries" / f"{idx:02d}_{safe_id}_parsed.json"
+        parsed_path = run_dir / "summaries" / \
+            f"{idx:02d}_{safe_id}_parsed.json"
 
         context = _paper_context(p)
 
@@ -143,10 +148,13 @@ def summarize_topk(state: GraphState) -> GraphState:
             {context}
         """)
 
+        def _get_client() -> genai.Client:
+            return genai.Client(api_key=get_gemini_api_key())
 
+        client = _get_client()
         # Save prompt always
         _write_text(prompt_path, prompt)
-        max_tries = 3
+        max_tries = 1
         last_err: Exception | None = None
 
         for attempt in range(1, max_tries + 1):
@@ -163,7 +171,8 @@ def summarize_topk(state: GraphState) -> GraphState:
                 raw_text = (resp.text or "").strip()
                 _write_text(raw_path, raw_text)
 
-                data = json.loads(raw_text)  # <-- if this fails, treat as retryable once/twice
+                # <-- if this fails, treat as retryable once/twice
+                data = json.loads(raw_text)
 
                 # Fill defaults from metadata
                 data.setdefault("paper_id", paper_id)
@@ -192,7 +201,6 @@ def summarize_topk(state: GraphState) -> GraphState:
                     _sleep_backoff(attempt)
                     continue
                 break
-
 
         if last_err is not None:
             failed = {

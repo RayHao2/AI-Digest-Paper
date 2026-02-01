@@ -10,13 +10,21 @@ dependencies = [
   "python-dotenv",
   "typer",
   "rich",
+
+  # API
   "fastapi>=0.128.0",
   "uvicorn>=0.40.0",
+
+  # runtime deps used by nodes
+  "requests",
+  "feedparser",
+  "rank-bm25",
+  "pymupdf",
+  "google-genai",
 ]
 
 [project.scripts]
 paper-digest = "paper_digest.main:main"
-
 
 [tool.ruff]
 line-length = 100

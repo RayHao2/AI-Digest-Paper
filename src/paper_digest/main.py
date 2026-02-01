@@ -6,8 +6,9 @@ import typer
 from dotenv import load_dotenv
 from rich import print
 from paper_digest.graph.build_graph import build
+from dotenv import load_dotenv
 
-
+load_dotenv()
 app = typer.Typer(add_completion=False)
 @app.command()
 def run(
