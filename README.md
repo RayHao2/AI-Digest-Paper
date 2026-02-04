@@ -115,7 +115,10 @@ For each run, the system generates:
       - 01_<paper>_prompt.txt
       - 01_<paper>_raw.txt
       - 01_<paper>_parsed.json
-
+- digest_YYYY-MM-DD.md: A human-readable Markdown digest compiling the final summaries of the top-ranked papers for the run date.
+- 01_<paper>_prompt.txt: The exact prompt sent to the LLM for a specific paper, captured for debugging, reproducibility, and prompt iteration.
+- 01_<paper>_raw.txt: The raw, unprocessed LLM response returned by Gemini before any parsing or validation.
+- 01_<paper>_parsed.json: The parsed and schema-validated structured summary used by downstream components (API, UI, storage).
 
 ## Project Status & Known Limitations
 
