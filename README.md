@@ -99,10 +99,10 @@ Use `localhost/docs` to get all the endpoint infomation
 # LangGraph Pipeline
 ```mermaid
 flowchart TD
-    A["Fetch Papers\n(arXiv)"] --> B["Rank Papers\n(BM25)"]
-    B --> C["Fetch Full Text\n(Top-K)"]
-    C --> D["Summarize Papers\n(Gemini)"]
-    D --> E["Assemble Digest\n(Markdown)"]
+    A["Fetch Papers(arXiv)"] --> B["Rank Papers(BM25)"]
+    B --> C["Fetch Full Text(Top-K)"]
+    C --> D["Summarize Papers(Gemini)"]
+    D --> E["Assemble Digest(Markdown)"]
     E --> F["Persist Artifacts"]
 ```
 
