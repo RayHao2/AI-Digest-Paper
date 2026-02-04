@@ -66,9 +66,8 @@ MacOs/Linux
 python -m venv .venv
 source .venv/bin/activate
 ```
-
-Windows(Powershell)
 ```sh
+Windows(Powershell)
 python -m venv .venv
 .\.venv\Scripts\activate
 ```
@@ -100,11 +99,11 @@ Use `localhost/docs` to get all the endpoint infomation
 # LangGraph Pipeline
 ```mermaid
 flowchart TD
-    A[Fetch Papers<br/>(arXiv)] --> B[Rank Papers<br/>(BM25)]
-    B --> C[Fetch Full Text<br/>(Top-K)]
-    C --> D[Summarize Papers<br/>(Gemini)]
-    D --> E[Assemble Digest<br/>(Markdown)]
-    E --> F[Persist Artifacts]
+    A["Fetch Papers\n(arXiv)"] --> B["Rank Papers\n(BM25)"]
+    B --> C["Fetch Full Text\n(Top-K)"]
+    C --> D["Summarize Papers\n(Gemini)"]
+    D --> E["Assemble Digest\n(Markdown)"]
+    E --> F["Persist Artifacts"]
 ```
 
 
