@@ -9,7 +9,7 @@ class Paper(TypedDict, total=False):
     Normalized representation of a paper, regardless of source.
     Keep this small for MVP; we can extend later.
     """
-    paper_id: str              # stable id (e.g., arXiv id). used for dedupe
+    paper_id: str              # Stable identifier (e.g., arXiv ID). Used for deduplication and tracing.
     source: str                # "arxiv", "pwc", etc.
     title: str
     authors: List[str]
@@ -20,10 +20,10 @@ class Paper(TypedDict, total=False):
     categories: List[str]
 
     intro_text: str
-    summary_text: str
-    pdf_url: str
-    content_status: str
-    content_error: str
+    summary_text: str           # abstract text in the website, not acutal LLM summaries
+    pdf_url: str                
+    content_status: str         # Error message if full-text extraction fails
+    content_error: str          # Error message if full-text extraction fails
 
 
 class PaperSummary(TypedDict, total=False):
@@ -37,7 +37,7 @@ class PaperSummary(TypedDict, total=False):
     methods: List[str]
     limitations: List[str]
     why_it_matters: str
-    tags: List[str]
+    tags: List[str]             # LLM-generated topical tags
     url: str
     status: str                # "ok" | "failed"
     error: str                 # present if failed
@@ -50,29 +50,30 @@ class PaperSummary(TypedDict, total=False):
 class GraphState(TypedDict, total=False):
     # Run context
     run_date: str
-    topics: List[str]
-    top_k: int
-    max_results: int
+    topics: List[str]       # user input topics
+    top_k: int              # numebr of paper to summarize
+    max_results: int        # max paper fetched from source before ranking
 
     # Pipeline payloads
-    raw_items: List[Dict[str, Any]]
-    papers: List[Paper]
-    candidates: List[Paper]
-    ranked: List[Paper]
+    raw_items: List[Dict[str, Any]]     # Raw records from source APIs before normalization
+    papers: List[Paper]                 # Normalized Paper objects
+    candidates: List[Paper]             # Filtered papers eligible for ranking
+    ranked: List[Paper]                 # Papers sorted by relevance score (e.g., BM25)
     summaries: List[PaperSummary]
     digest_md: str
 
     # Diagnostics
-    errors: List[str]
-    logs: List[str]
-    rank_scores: List[float]
+    errors: List[str]               # pipelin-level erros
+    logs: List[str]                 # human-readable exectution trace 
+    rank_scores: List[float]        # optoinal rank score algined with `ranked` ppaer
 
-    fulltext_ready: List[Paper]
-    pdf_head_pages: int
-    pdf_tail_pages: int
-    pdf_fetch_limit: int
-    section_max_chars: int
-    pdf_polite_delay_s: float
+    # Full-text extraction config
+    fulltext_ready: List[Paper]     # Papers that successfully passed full-text extraction
+    pdf_head_pages: int             # Number of pages extracted from the beginning of PDFs
+    pdf_tail_pages: int             # Number of pages extracted from the end of PDFs
+    pdf_fetch_limit: int            # Maximum number of PDFs to fetch in a run
+    section_max_chars: int          # Character cap per extracted section
+    pdf_polite_delay_s: float       # Delay between PDF fetches to avoid rate limiting
     # LLM model to use 
     llm_model: str
 
