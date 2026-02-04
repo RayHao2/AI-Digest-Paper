@@ -171,7 +171,7 @@ def summarize_topk(state: GraphState) -> GraphState:
                 raw_text = (resp.text or "").strip()
                 _write_text(raw_path, raw_text)
 
-                # <-- if this fails, treat as retryable once/twice
+                # <-- if this fails, max_tries will be count in
                 data = json.loads(raw_text)
 
                 # Fill defaults from metadata
@@ -188,6 +188,7 @@ def summarize_topk(state: GraphState) -> GraphState:
                 last_err = None
                 break
 
+            # Json parsing fail
             except json.JSONDecodeError as ex:
                 last_err = ex
                 if attempt < max_tries:
@@ -195,6 +196,7 @@ def summarize_topk(state: GraphState) -> GraphState:
                     continue
                 break
 
+            # Other error like like API/Network error
             except Exception as ex:
                 last_err = ex
                 if attempt < max_tries and _is_transient(ex):
