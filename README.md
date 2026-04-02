@@ -130,14 +130,16 @@ This project is **actively under development** and represents a working but evol
 - **Local artifact persistence** (prompts, raw outputs, parsed summaries, digests)
 - **Gemini-based structured summarization** with JSON schema enforcement
 
-### 🚧 In Progress / Planned Enhancements
-- **Persistent storage**: currently in-memory; **S3 / DynamoDB** integration planned
-- **Authentication**: API is unsecured; intended for personal use at this stage
-- **Scheduling**: daily automated digests via **EventBridge** not yet wired
-- **Email delivery**: **SES-ready** design, not yet implemented
-- **Scalability**: single-process execution; no worker pool or task queue yet
-- **Ranking quality**: BM25 implemented; tuning and evaluation ongoing
 
-### ⚠️ Disclaimer
-This repository reflects an **engineering prototype and portfolio project**, not a production-ready system.  
-Design choices intentionally prioritize **clarity, extensibility, and experimentation** over full operational hardening.
+
+# Run docker
+
+Create Image
+```sh
+docker build -t ai-digest-paper .
+```
+
+Run container
+```sh
+docker run -p 8000:8000 -e GEMINI_API_KEY=your_real_key_here -v ${PWD}\outputs:/app/outputs ai-digest-paper
+```
