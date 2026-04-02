@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import List
-from urllib.parse import quote_plus
+import time
 
 import feedparser
 import requests
@@ -10,42 +10,45 @@ import requests
 from ..state import GraphState, Paper
 
 
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 
 def _build_arxiv_query(topics: List[str]) -> str:
     """
     Build arXiv search_query string.
 
-    If topics is empty, we default to cs.AI OR cs.LG OR cs.CL.
-    Otherwise we search title/abstract for your keywords.
+    If topics is empty, default to several AI-related categories.
+    Otherwise search title/abstract for the provided keywords.
     """
     if not topics:
-        # Good default “AI-ish” categories:
         return "cat:cs.AI OR cat:cs.LG OR cat:cs.CL OR cat:cs.CV OR cat:cs.IR"
 
-    # Search in title+abstract
-    # arXiv supports ti: and abs:
     parts = []
     for t in topics:
         t = t.strip()
         if not t:
             continue
-        # Quote terms that might contain spaces
         parts.append(f'ti:"{t}" OR abs:"{t}"')
 
-    # Combine topics with OR so it doesn't become too strict
     return " OR ".join(parts) if parts else "cat:cs.AI OR cat:cs.LG OR cat:cs.CL"
 
+
 def _parse_arxiv_entry(entry) -> Paper:
-    # arXiv entry.id often looks like "http://arxiv.org/abs/XXXX.XXXXXvN"
     paper_id = entry.get("id", "")
     title = (entry.get("title", "") or "").replace("\n", " ").strip()
     abstract = (entry.get("summary", "") or "").replace("\n", " ").strip()
     url = entry.get("link", "") or paper_id
 
-    authors = [a.get("name", "").strip() for a in entry.get("authors", []) if a.get("name")]
-    tags = [t.get("term", "").strip() for t in entry.get("tags", []) if t.get("term")]
+    authors = [
+        a.get("name", "").strip()
+        for a in entry.get("authors", [])
+        if a.get("name")
+    ]
+    tags = [
+        t.get("term", "").strip()
+        for t in entry.get("tags", [])
+        if t.get("term")
+    ]
 
     published = entry.get("published", "")
     updated = entry.get("updated", "")
@@ -65,16 +68,18 @@ def _parse_arxiv_entry(entry) -> Paper:
 
 def fetch_papers(state: GraphState) -> GraphState:
     """
-    Fetch recently UPDATED arXiv papers (Atom feed) and return as normalized `papers`.
+    Fetch recently updated arXiv papers and normalize them into `papers`.
 
-    Notes:
-    - arXiv API returns many results; we control with max_results.
-    - We'll filter/dedupe later in separate nodes; for now we just fetch + normalize.
+    Retry on transient network failures with exponential backoff.
     """
-    # run_date in local time format is fine for digest labeling
     state["run_date"] = state.get("run_date") or datetime.now().strftime("%Y-%m-%d")
     topics = state.get("topics", [])
     max_results = int(state.get("max_results", 20))
+
+    # Configurable knobs
+    timeout_s = float(state.get("fetch_timeout_s", 45))
+    max_tries = int(state.get("fetch_max_tries", 3))
+    backoff_base_s = float(state.get("fetch_backoff_base_s", 2.0))
 
     search_query = _build_arxiv_query(topics)
 
@@ -86,27 +91,60 @@ def fetch_papers(state: GraphState) -> GraphState:
         "max_results": max_results,
     }
 
-    try:
-        # requests → feedparser to parse Atom
-        resp = requests.get(ARXIV_API, params=params, timeout=20)
-        resp.raise_for_status()
-        feed = feedparser.parse(resp.text)
+    last_err: Exception | None = None
 
-        papers: List[Paper] = []
-        for e in feed.entries:
-            p = _parse_arxiv_entry(e)
-            # Basic sanity: must have title + abstract
-            if p.get("title") and p.get("abstract"):
-                papers.append(p)
+    for attempt in range(1, max_tries + 1):
+        try:
+            resp = requests.get(ARXIV_API, params=params, timeout=timeout_s)
+            resp.raise_for_status()
 
-        state["papers"] = papers
-        state.setdefault("logs", []).append(
-            f"FetchPapers: fetched {len(papers)} papers from arXiv (sorted by lastUpdatedDate)."
-        )
-        return state
+            feed = feedparser.parse(resp.text)
 
-    except Exception as ex:
-        state.setdefault("errors", []).append(f"FetchPapers failed: {ex}")
-        state["papers"] = []
-        state.setdefault("logs", []).append("FetchPapers: error; produced 0 papers.")
-        return state
+            papers: List[Paper] = []
+            for e in feed.entries:
+                p = _parse_arxiv_entry(e)
+                if p.get("title") and p.get("abstract"):
+                    papers.append(p)
+
+            state["papers"] = papers
+            state.setdefault("logs", []).append(
+                f"FetchPapers: fetched {len(papers)} papers from arXiv "
+                f"(sorted by lastUpdatedDate, attempt {attempt}/{max_tries})."
+            )
+            return state
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as ex:
+            last_err = ex
+            if attempt < max_tries:
+                sleep_s = backoff_base_s ** (attempt - 1)
+                state.setdefault("logs", []).append(
+                    f"FetchPapers: transient network error on attempt "
+                    f"{attempt}/{max_tries}: {ex}. Retrying in {sleep_s:.1f}s."
+                )
+                time.sleep(sleep_s)
+                continue
+            break
+
+        except requests.exceptions.HTTPError as ex:
+            last_err = ex
+            status = ex.response.status_code if ex.response is not None else None
+
+            # Retry only on server-side / rate-limit style errors
+            if status in {429, 500, 502, 503, 504} and attempt < max_tries:
+                sleep_s = backoff_base_s ** (attempt - 1)
+                state.setdefault("logs", []).append(
+                    f"FetchPapers: HTTP {status} on attempt "
+                    f"{attempt}/{max_tries}. Retrying in {sleep_s:.1f}s."
+                )
+                time.sleep(sleep_s)
+                continue
+            break
+
+        except Exception as ex:
+            last_err = ex
+            break
+
+    state.setdefault("errors", []).append(f"FetchPapers failed: {last_err}")
+    state["papers"] = []
+    state.setdefault("logs", []).append("FetchPapers: error; produced 0 papers.")
+    return state

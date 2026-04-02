@@ -27,11 +27,15 @@ def run_pipeline(run_id: str, request: Dict[str, Any], store: RunStore) -> None:
 
         # GraphState is TypedDict, so a plain dict is fine:
         state_in = {
+            "run_id": run_id,
+            "run_date": request.get("run_date"),
             "topics": request.get("topics", []),
             "top_k": int(request.get("top_k", 5)),
             "max_results": int(request.get("max_results", 20)),
-            "llm_model": request.get("llm_model"),   # your summarize node reads this
+            "llm_model": request.get("llm_model"),
             "out_dir": request.get("out_dir", "outputs"),
+            "errors": [],
+            "logs": [],
         }
 
         out = g.invoke(state_in)

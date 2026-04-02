@@ -52,7 +52,7 @@ def create_app() -> FastAPI:
         run_date = datetime.now().strftime("%Y-%m-%d")
 
         request_dict: Dict[str, Any] = req.model_dump()
-
+        request_dict["run_date"] = run_date
         # Create initial run record
         store.create(
             run_id,

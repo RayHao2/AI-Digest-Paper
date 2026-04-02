@@ -91,7 +91,8 @@ def summarize_topk(state: GraphState) -> GraphState:
     chosen = ranked[: min(len(ranked), top_k)]
 
     out_dir = Path(state.get("out_dir", "outputs")).resolve()
-    run_dir = out_dir
+    run_id = state.get("run_id", "unknown_run")
+    run_dir = out_dir / "runs" / run_id
 
     if not chosen:
         state["summaries"] = []
